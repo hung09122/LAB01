@@ -3,9 +3,569 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nguyễn Lê Hưng CNTT 20-03</title>
+    <title>Hứng Quà Kỳ Thú - Bảng Xếp Hạng Toàn Cầu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <h1>Đây là trang web đầu tiên Nguyễn Lê Hưng</h1>
+    body {
+            font-family: 'Fredoka', sans-serif;
+            touch-action: none;
+            user-select: none;
+        }
+        .game-canvas-bg {
+            background: linear-gradient(135deg, #0f172a 1e%, #1e1b4b 50%, #312e81 100%);
+        }
+        .glow-text {
+            text-shadow: 0 0 15px rgba(167, 139, 250, 0.6);
+        }
+        .panel-glass {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        /* Custom scrollbar for leaderboard */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="game-canvas-bg min-h-screen text-white flex flex-col items-center justify-center p-2 sm:p-4 overflow-hidden">
+
+    <div id="app" class="w-full max-w-md h-[88vh] max-h-[800px] flex flex-col relative rounded-3xl shadow-2xl overflow-hidden border border-indigo-500/30 bg-slate-900/60">
+        
+        <!-- Header / HUD -->
+        <div id="hud" class="absolute top-0 left-0 right-0 z-20 flex justify-between items-center p-3 sm:p-4 bg-black/50 backdrop-blur-md border-b border-white/10">
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <div class="bg-indigo-600/70 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold flex items-center space-x-1">
+                    <span>⭐</span>
+                    <span id="scoreVal">0</span>
+                </div>
+                <div class="bg-rose-600/70 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold flex items-center space-x-1">
+                    <span>❤️</span>
+                    <span id="livesVal">3</span>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <div class="bg-amber-500/70 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                    Màn <span id="levelVal">1</span>
+                </div>
+                <button id="soundBtn" class="bg-white/10 p-2 rounded-full hover:bg-white/20 transition">🔊</button>
+            </div>
+        </div>
+
+        <!-- Game Canvas Container -->
+        <div class="relative w-full flex-1 overflow-hidden cursor-pointer" id="canvasContainer">
+            <canvas id="gameCanvas" class="w-full h-full block"></canvas>
+            
+            <!-- Start Screen Overlay -->
+            <div id="startScreen" class="absolute inset-0 flex flex-col items-center justify-center bg-indigo-950/95 backdrop-blur-md z-30 p-6 text-center">
+                <div class="text-5xl sm:text-6xl mb-3 animate-bounce">🎁</div>
+                <h1 class="text-2xl sm:text-3xl font-bold glow-text mb-1 bg-gradient-to-r from-pink-400 to-amber-300 bg-clip-text text-transparent">Hứng Quà Kỳ Thú</h1>
+                <p class="text-indigo-200 text-xs sm:text-sm mb-4">Cạnh tranh điểm số cao nhất cùng bạn bè toàn cầu!</p>
+                
+                <div class="w-full max-w-xs mb-4 text-left">
+                    <label class="block text-xs font-semibold text-indigo-300 mb-1">Tên hoặc biệt danh của bạn:</label>
+                    <input type="text" id="playerNameInput" placeholder="Nhập tên của bạn..." maxlength="15" 
+                        class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-indigo-300/50 focus:outline-none focus:border-pink-500 text-sm font-semibold">
+                </div>
+
+                <div class="w-full max-w-xs space-y-2">
+                    <button id="startBtn" class="w-full py-3.5 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 font-bold rounded-xl shadow-lg transform active:scale-95 transition text-base">
+                        Bắt Đầu Chơi
+                    </button>
+                    <button id="showLeaderboardBtn" class="w-full py-3 bg-white/10 hover:bg-white/20 font-semibold rounded-xl transition text-sm border border-white/10">
+                        🏆 Xem Bảng Xếp Hạng
+                    </button>
+                </div>
+            </div>
+
+            <!-- Leaderboard Overlay -->
+            <div id="leaderboardScreen" class="absolute inset-0 flex flex-col items-center bg-slate-950/95 backdrop-blur-md z-30 p-6 text-center hidden">
+                <div class="flex items-center justify-between w-full mb-4">
+                    <h2 class="text-xl font-bold text-amber-300 flex items-center space-x-2"><span>🏆</span> <span>Bảng Xếp Hạng Top 10</span></h2>
+                    <button id="backToStartBtn" class="bg-white/10 px-3 py-1.5 rounded-lg text-xs hover:bg-white/20 transition">Quay lại</button>
+                </div>
+                
+                <div class="panel-glass rounded-2xl flex-1 w-full overflow-y-auto p-2 mb-4 space-y-2" id="leaderboardList">
+                    <div class="text-indigo-300 text-sm py-8 animate-pulse">Đang tải bảng xếp hạng...</div>
+                </div>
+            </div>
+
+            <!-- Game Over Overlay -->
+            <div id="gameOverScreen" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/95 backdrop-blur-md z-30 p-6 text-center hidden">
+                <div class="text-5xl sm:text-6xl mb-2">💥</div>
+                <h2 class="text-2xl font-bold text-rose-400 mb-1">Kết Thúc Trò Chơi</h2>
+                <p class="text-slate-300 text-xs sm:text-sm mb-3" id="savingStatus">Đang lưu điểm của bạn lên hệ thống...</p>
+                
+                <div class="panel-glass rounded-2xl p-4 w-full max-w-xs mb-4 space-y-2 text-left">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-indigo-200">Người chơi:</span>
+                        <span id="finalPlayerName" class="font-bold text-white">--</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-indigo-200">Điểm số đạt được:</span>
+                        <span id="finalScore" class="font-bold text-amber-300">0</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-indigo-200">Màn đạt tới:</span>
+                        <span id="finalLevel" class="font-bold text-pink-300">1</span>
+                    </div>
+                </div>
+
+                <div class="w-full max-w-xs space-y-2">
+                    <button id="restartBtn" class="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 font-bold rounded-xl shadow-lg transform active:scale-95 transition text-base">
+                        Chơi Lại Ngay
+                    </button>
+                    <button id="viewRankBtn" class="w-full py-3 bg-white/10 hover:bg-white/20 font-semibold rounded-xl transition text-sm border border-white/10">
+                        🏆 Xem Bảng Xếp Hạng
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer Control Hint for Mobile -->
+        <div class="bg-black/50 py-2 px-4 text-center text-xs text-indigo-300 border-t border-white/10">
+            Vuốt màn hình sang trái / phải để di chuyển giỏ hứng quà
+        </div>
+    </div>
+
+    <!-- Firebase Integration Scripts -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, query, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Environment variables setup
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'catcher-game-default-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+
+        let db = null;
+        let auth = null;
+        let currentUser = null;
+
+        // Initialize Firebase safely
+        try {
+            if (Object.keys(firebaseConfig).length > 0) {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                if (token) {
+                    signInWithCustomToken(auth, token).then((userCred) => {
+                        currentUser = userCred.user;
+                    }).catch(() => {
+                        signInAnonymously(auth).then((userCred) => {
+                            currentUser = userCred.user;
+                        });
+                    });
+                } else {
+                    signInAnonymously(auth).then((userCred) => {
+                        currentUser = userCred.user;
+                    });
+                }
+            }
+        } catch (e) {
+            console.warn("Firebase initialization warning:", e);
+        }
+
+        // Sound Synthesizer via Web Audio API
+        class SoundController {
+            constructor() {
+                this.enabled = true;
+                this.ctx = null;
+            }
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+            }
+            playTone(freq, type, duration, vol = 0.1) {
+                if (!this.enabled) return;
+                try {
+                    this.init();
+                    if (this.ctx.state === 'suspended') this.ctx.resume();
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e) {}
+            }
+            catchItem() { this.playTone(587.33, 'sine', 0.15, 0.15); setTimeout(()=>this.playTone(880, 'sine', 0.2, 0.15), 50); }
+            bombHit() { this.playTone(130.81, 'sawtooth', 0.4, 0.2); }
+            levelUp() { [440, 554.37, 659.25, 880].forEach((f, i) => setTimeout(() => this.playTone(f, 'triangle', 0.15, 0.1), i * 100)); }
+        }
+
+        const sound = new SoundController();
+
+        // Game Core Variables
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const canvasContainer = document.getElementById('canvasContainer');
+
+        let score = 0;
+        let lives = 3;
+        let level = 1;
+        let gameRunning = false;
+        let items = [];
+        let particles = [];
+        let basket = { x: 0, y: 0, width: 80, height: 40, targetX: 0, speed: 0.15 };
+        let spawnTimer = 0;
+        let playerName = "Khách ẩn danh";
+
+        const itemTypes = [
+            { type: 'gift', icon: '🎁', points: 10, prob: 0.4, color: '#f43f5e' },
+            { type: 'star', icon: '⭐', points: 25, prob: 0.25, color: '#fbbf24' },
+            { type: 'diamond', icon: '💎', points: 50, prob: 0.1, color: '#38bdf8' },
+            { type: 'bomb', icon: '💣', points: -1, prob: 0.25, color: '#64748b' }
+        ];
+
+        function resizeCanvas() {
+            canvas.width = canvasContainer.clientWidth;
+            canvas.height = canvasContainer.clientHeight;
+            basket.y = canvas.height - 70;
+            if (!gameRunning) {
+                basket.x = canvas.width / 2 - basket.width / 2;
+                basket.targetX = basket.x;
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function handleMove(clientX) {
+            const rect = canvas.getBoundingClientRect();
+            const x = clientX - rect.left;
+            basket.targetX = x - basket.width / 2;
+        }
+
+        canvasContainer.addEventListener('mousemove', (e) => {
+            if (!gameRunning) return;
+            handleMove(e.clientX);
+        });
+
+        canvasContainer.addEventListener('touchmove', (e) => {
+            if (!gameRunning) return;
+            e.preventDefault();
+            handleMove(e.touches[0].clientX);
+        }, { passive: false });
+
+        function createParticles(x, y, color) {
+            for (let i = 0; i < 8; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6 - 2,
+                    alpha: 1, color: color, size: Math.random() * 6 + 4
+                });
+            }
+        }
+
+        function spawnItem() {
+            const rand = Math.random();
+            let cumulative = 0;
+            let selected = itemTypes[0];
+            
+            for (const t of itemTypes) {
+                cumulative += t.prob;
+                if (rand <= cumulative) {
+                    selected = t;
+                    break;
+                }
+            }
+
+            const size = 36;
+            const x = Math.random() * (canvas.width - size);
+            const baseSpeed = 2.5 + (level - 1) * 0.8;
+            const vy = baseSpeed + Math.random() * 1.5;
+
+            items.push({ x: x, y: -size, size: size, vy: vy, ...selected });
+        }
+
+        function updateGame() {
+            if (!gameRunning) return;
+
+            basket.x += (basket.targetX - basket.x) * basket.speed;
+            basket.x = Math.max(0, Math.min(canvas.width - basket.width, basket.x));
+
+            spawnTimer++;
+            let currentSpawnRate = Math.max(20, 60 - (level - 1) * 6);
+            if (spawnTimer >= currentSpawnRate) {
+                spawnItem();
+                spawnTimer = 0;
+            }
+
+            for (let i = items.length - 1; i >= 0; i--) {
+                let item = items[i];
+                item.y += item.vy;
+
+                const basketHitbox = { x: basket.x, y: basket.y + 10, w: basket.width, h: basket.height - 10 };
+
+                if (
+                    item.x + item.size > basketHitbox.x &&
+                    item.x < basketHitbox.x + basketHitbox.w &&
+                    item.y + item.size > basketHitbox.y &&
+                    item.y < basketHitbox.y + basketHitbox.h
+                ) {
+                    if (item.type === 'bomb') {
+                        lives--;
+                        sound.bombHit();
+                        createParticles(item.x + item.size/2, item.y + item.size/2, '#ef4444');
+                        if (lives <= 0) endGame();
+                    } else {
+                        score += item.points;
+                        sound.catchItem();
+                        createParticles(item.x + item.size/2, item.y + item.size/2, item.color);
+                        const newLevel = Math.floor(score / 150) + 1;
+                        if (newLevel > level) {
+                            level = newLevel;
+                            sound.levelUp();
+                        }
+                    }
+                    items.splice(i, 1);
+                    updateHUD();
+                    continue;
+                }
+
+                if (item.y > canvas.height) {
+                    items.splice(i, 1);
+                }
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx; p.y += p.vy; p.alpha -= 0.03;
+                if (p.alpha <= 0) particles.splice(i, 1);
+            }
+        }
+
+        function renderGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < canvas.width; x += 40) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+            }
+
+            ctx.font = '28px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            for (let item of items) {
+                ctx.save();
+                ctx.shadowColor = item.color;
+                ctx.shadowBlur = 10;
+                ctx.fillText(item.icon, item.x + item.size/2, item.y + item.size/2);
+                ctx.restore();
+            }
+
+            for (let p of particles) {
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            ctx.save();
+            ctx.shadowColor = 'rgba(129, 140, 248, 0.5)';
+            ctx.shadowBlur = 15;
+            
+            const gradient = ctx.createLinearGradient(basket.x, basket.y, basket.x, basket.y + basket.height);
+            gradient.addColorStop(0, '#818cf8');
+            gradient.addColorStop(1, '#4f46e5');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.roundRect(basket.x, basket.y, basket.width, basket.height, [12, 12, 16, 16]);
+            ctx.fill();
+
+            ctx.fillStyle = '#c7d2fe';
+            ctx.beginPath();
+            ctx.roundRect(basket.x - 4, basket.y - 6, basket.width + 8, 10, 5);
+            ctx.fill();
+
+            ctx.font = '18px sans-serif';
+            ctx.fillText('🧺', basket.x + basket.width / 2, basket.y + basket.height / 2);
+            ctx.restore();
+        }
+
+        function gameLoop() {
+            updateGame();
+            renderGame();
+            if (gameRunning) requestAnimationFrame(gameLoop);
+        }
+
+        function updateHUD() {
+            document.getElementById('scoreVal').innerText = score;
+            document.getElementById('livesVal').innerText = lives;
+            document.getElementById('levelVal').innerText = level;
+        }
+
+        function startGame() {
+            const inputName = document.getElementById('playerNameInput').value.trim();
+            if (inputName !== "") {
+                playerName = inputName;
+            }
+
+            score = 0;
+            lives = 3;
+            level = 1;
+            items = [];
+            particles = [];
+            spawnTimer = 0;
+            updateHUD();
+
+            basket.x = canvas.width / 2 - basket.width / 2;
+            basket.targetX = basket.x;
+
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            document.getElementById('leaderboardScreen').classList.add('hidden');
+            
+            gameRunning = true;
+            requestAnimationFrame(gameLoop);
+        }
+
+        async function endGame() {
+            gameRunning = false;
+            document.getElementById('finalPlayerName').innerText = playerName;
+            document.getElementById('finalScore').innerText = score;
+            document.getElementById('finalLevel').innerText = level;
+            document.getElementById('gameOverScreen').classList.remove('hidden');
+
+            // Save score to Firestore public data collection
+            const savingStatus = document.getElementById('savingStatus');
+            savingStatus.innerText = "Đang lưu điểm lên hệ thống...";
+
+            try {
+                if (db) {
+                    const scoresCol = collection(db, 'artifacts', appId, 'public', 'data', 'scores');
+                    await addDoc(scoresCol, {
+                        name: playerName,
+                        score: score,
+                        level: level,
+                        timestamp: Date.now()
+                    });
+                    savingStatus.innerText = "Điểm số đã được lưu lên bảng xếp hạng thành công!";
+                    savingStatus.className = "text-emerald-400 text-xs sm:text-sm mb-3";
+                } else {
+                    savingStatus.innerText = "Chế độ ngoại tuyến: Điểm đã ghi nhận!";
+                }
+            } catch (e) {
+                savingStatus.innerText = "Không thể lưu điểm trực tuyến (lỗi mạng).";
+                savingStatus.className = "text-rose-400 text-xs sm:text-sm mb-3";
+            }
+        }
+
+        async function loadLeaderboard() {
+            const listEl = document.getElementById('leaderboardList');
+            listEl.innerHTML = '<div class="text-indigo-300 text-sm py-8 animate-pulse">Đang tải bảng xếp hạng...</div>';
+
+            try {
+                if (db) {
+                    const scoresCol = collection(db, 'artifacts', appId, 'public', 'data', 'scores');
+                    const q = query(scoresCol, limit(50));
+                    const querySnapshot = await getDocs(q);
+                    
+                    let scoresList = [];
+                    querySnapshot.forEach((docSnap) => {
+                        scoresList.push(docSnap.data());
+                    });
+
+                    // Sort descending by score in memory (Rule 2 compliant)
+                    scoresList.sort((a, b) => b.score - a.score);
+                    
+                    // Take top 10
+                    scoresList = scoresList.slice(0, 10);
+
+                    if (scoresList.length === 0) {
+                        listEl.innerHTML = '<div class="text-indigo-300 text-sm py-8">Chưa có lượt chơi nào. Hãy là người đầu tiên lập kỷ lục!</div>';
+                        return;
+                    }
+
+                    let html = '';
+                    scoresList.forEach((item, index) => {
+                        let rankEmoji = index === 0 ? '👑' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : `#${index + 1}`));
+                        let bgClass = index === 0 ? 'bg-amber-500/20 border-amber-500/40' : 'bg-white/5 border-white/10';
+                        
+                        html += `
+                            <div class="flex items-center justify-between p-3 rounded-xl border ${bgClass} text-sm">
+                                <div class="flex items-center space-x-3">
+                                    <span class="font-bold w-6 text-center">${rankEmoji}</span>
+                                    <span class="font-semibold text-white truncate max-w-[120px] sm:max-w-[160px]">${escapeHtml(item.name || 'Vô danh')}</span>
+                                </div>
+                                <div class="flex items-center space-x-3 text-right">
+                                    <span class="text-xs text-indigo-300">Màn ${item.level || 1}</span>
+                                    <span class="font-bold text-amber-300">${item.score} đ</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    listEl.innerHTML = html;
+                } else {
+                    listEl.innerHTML = '<div class="text-indigo-300 text-sm py-8">Chức năng bảng xếp hạng trực tuyến chưa được kết nối.</div>';
+                }
+            } catch(e) {
+                listEl.innerHTML = '<div class="text-rose-400 text-sm py-8">Không thể tải dữ liệu bảng xếp hạng.</div>';
+            }
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        // DOM Button Triggers
+        document.getElementById('startBtn').addEventListener('click', () => {
+            sound.init();
+            startGame();
+        });
+
+        document.getElementById('restartBtn').addEventListener('click', () => {
+            startGame();
+        });
+
+        document.getElementById('showLeaderboardBtn').addEventListener('click', () => {
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('leaderboardScreen').classList.remove('hidden');
+            loadLeaderboard();
+        });
+
+        document.getElementById('viewRankBtn').addEventListener('click', () => {
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            document.getElementById('leaderboardScreen').classList.remove('hidden');
+            loadLeaderboard();
+        });
+
+        document.getElementById('backToStartBtn').addEventListener('click', () => {
+            document.getElementById('leaderboardScreen').classList.add('hidden');
+            document.getElementById('startScreen').classList.remove('hidden');
+        });
+
+        const soundBtn = document.getElementById('soundBtn');
+        soundBtn.addEventListener('click', () => {
+            sound.enabled = !sound.enabled;
+            soundBtn.innerText = sound.enabled ? '🔊' : '🔇';
+        });
+
+        renderGame();
+    </script>
 </body>
 </html>
